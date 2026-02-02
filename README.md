@@ -1,2 +1,172 @@
 # linux-paddle
-编译paddle
+编译paddle的一些过程/踩坑/环境配置记录  
+总体过程参考https://www.paddlepaddle.org.cn/documentation/docs/zh/develop/install/compile/linux-compile-by-make.html
+
+## 环境
+Linux 版本 (64bit)  
+Ubuntu 20.04 (GPU版本支持 CUDA 11.8-12.x)  
+3090  
+cuda 11.8  cudnn 8.9  
+python3.10
+## 检查环境
+```bash
+# 检查linux环境
+nvidia-smi | grep -E "CUDA Version|Driver Version"
+nvcc -V
+```
+CUDA Toolkit和Paddle编译时选用的CUDA要匹配  
+保证各工具/依赖的版本兼容、源码完整性、硬件与编译配置匹配   
+
+如果环境不匹配的话 在最后一步单元测试的时候会找不到GPU  
+但这个问题题主目前也没搞清楚为什么 
+
+## 开始使用Docker编译  
+#### 1. 请首先选择您希望储存 PaddlePaddle 的路径，然后在该路径下使用以下命令将 PaddlePaddle 的源码从 github 克隆到本地当前目录下名为 Paddle 的文件夹中：  
+```bash
+git clone --recursive https://github.com/PaddlePaddle/Paddle.git  
+```
+#### 2. 进入 Paddle 目录下：  
+```bash
+cd Paddle
+```  
+#### 3. 拉取 PaddlePaddle 镜像 
+```bash
+docker pull ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddle:cuda118-dev
+```
+#### 4. 创建并进入已配置好编译环境的 Docker 容器：   
+```bash
+docker run --gpus all --name paddle_docker -v $PWD:/paddle --network=host -it ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddle:3.3.0-gpu-cuda11.8-cudnn8.9 /bin/bash  
+```
+#### 5. 进入 Docker 后进入 paddle 目录下：
+```bash
+cd Paddle
+```
+遗漏这一步可能导致路径变成paddle/paddle 与参考文档不同  
+#### 6. 切换到 develop 版本进行编译：
+```bash
+git checkout develop
+```
+注意：目前paddle 支持 Python 3.9 以上版本  
+
+#### 7. 创建并进入/paddle/build 路径下：
+```bash
+mkdir -p /paddle/build && cd /paddle/build
+```
+#### 8. 使用以下命令安装相关依赖：
+安装编译依赖
+```bash
+pip3.10 install -r /paddle/python/requirements.txt
+```
+#### 9. 执行 cmake：
+```bash
+cmake .. -DPY_VERSION=3.10 -DWITH_GPU=ON -DWITH_DISTRIBUTE=ON
+```
+#### 10. 执行编译：
+```bash
+make -j$(nproc)
+#如果需要计算编译时间
+time make -j$(nproc)
+```
+编译途中报错：  
+如果运行上述代码仅显示error2  
+可以运行  
+```bash
+make -j1
+```
+运行速度较慢 但可以最终输出具体错误原因 再进行处理即可  
+以下问题出现在编译途中
+<img width="1908" height="542" alt="9663c284127229a53267c6ee5825284c" src="https://github.com/user-attachments/assets/aec332f0-f282-4fa4-8b39-196718859b93" />
+需要修改编译代码重新开始   
+修复：  
+```bash
+cat > fix_for_rtx3090.sh << 'EOF'
+#!/bin/bash
+
+echo "=== 修复 RTX 3090 (计算能力 8.6) 的构建问题 ==="
+
+# 进入目录
+cd /paddle
+
+# 备份重要文件
+cp cmake/cuda.cmake cmake/cuda.cmake.backup
+cp .gitmodules .gitmodules.backup
+
+# 修复主配置
+echo "修复 cmake/cuda.cmake..."
+sed -i 's/set(CUDA_ARCH "100")/set(CUDA_ARCH "86")/g' cmake/cuda.cmake
+sed -i 's/compute_100,code=sm_100/compute_86,code=sm_86/g' cmake/cuda.cmake
+sed -i 's/"100"/"86"/g' cmake/cuda.cmake
+
+# 修复第三方库
+echo "修复第三方库配置..."
+for dir in warpctc warprnnt; do
+    if [ -f "python/third_party/$dir/CMakeLists.txt" ]; then
+        sed -i 's/compute_100/compute_86/g' python/third_party/$dir/CMakeLists.txt
+        sed -i 's/sm_100/sm_86/g' python/third_party/$dir/CMakeLists.txt
+        sed -i 's/-arch=compute_100/-arch=compute_86/g' python/third_party/$dir/CMakeLists.txt
+        echo "已修复 $dir"
+    fi
+done
+
+# 清理构建缓存
+echo "清理构建缓存..."
+rm -rf build
+rm -rf python/third_party/*/src/extern_*-build
+
+# 重新配置
+echo "重新配置..."
+mkdir build && cd build
+cmake .. \
+  -DCUDA_ARCH_NAME=Ampere \
+  -DCUDA_ARCH_BIN="86" \
+  -DCUDA_ARCH_PTX="86" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DWITH_GPU=ON \
+  -DWITH_TESTING=OFF \
+  -DWITH_DISTRIBUTE=OFF
+
+echo "开始构建..."
+make -j$(nproc) 2>&1 | tee build_rtx3090.log
+
+echo "=== 完成 ==="
+EOF
+```
+之后即可重新运行（此处注意自己的目录是否与代码中相同&如果计算时间在make前加time）
+
+#### 11.初次编译/二次编译
+此处参考文档为 https://github.com/PaddlePaddle/FastDeploy/issues/6225
+初次编译时间相当于二次编译速度更快，因为有编译存储的存在，时间会较短  
+  
+修改底层的头文件：paddle/fluid/platform/enforce.h   
+  
+修改Op的cc文件：paddle/fluid/operators/rank_loss_op.cc  
+这个文档不知道为何在 paddle 3.3 中没有出现 可能在版本迭代中，对算子做了移除、重命名或架构迁移。  
+题主在该文件夹下找了一个其他的文件进行二次编译   
+  
+修改python文件：python/paddle/tensor/math.py   
+二次编译方式：对应文件加一个空行/空格保存退出后，然后执行编译命令time make -j$(nproc)，二次编译需要执行cmake  
+
+#### 12. 编译成功后进入/paddle/build/python/dist目录下找到生成的.whl包：
+```bash
+cd /paddle/build/python/dist
+```
+#### 13. 在当前机器或目标机器安装编译好的.whl包：
+```bash
+pip3.10 install -U [whl 包的名字]
+```
+#### 14. 运行单元测试
+不同的编译选项，能编译出不同的功能，对应的编译时间也各不相同。可以参考编译选项表，尝试打开WITH_TESTING=ON编译出单元测试，并正确运行一个单测。
+```bash
+# 重新运行cmake命令：
+cmake .. -DPY_VERSION=3.8 -DWITH_GPU=OFF -DWITH_TESTING=ON（在原来的cmake命令后加入-DWITH_TESTING=ON）
+# 执行编译命令
+make -j$(nproc)
+# 安装第三方依赖
+pip3.10 install -r ../python/requirements.txt
+# cd
+cd /paddle/build
+#运行logsumexp的单测
+ctest -R test_logsumexp运行logsumexp的单测。
+```
+
+
