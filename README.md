@@ -1,14 +1,16 @@
-# linux-paddle
+# Ubuntu 下编译 paddle 踩坑纪录
 编译paddle的一些过程/踩坑/环境配置记录  
 总体过程参考https://www.paddlepaddle.org.cn/documentation/docs/zh/develop/install/compile/linux-compile-by-make.html
 
 ## 环境
 Linux ubuntu 20.04   
 硬件  NVIDIA 3090    
+Docker  28.2.1  
 cuda 11.8  cudnn 8.9  
 python3.10
 
-ps：题主曾使用过macbook M1进行本地编译 发现在编译中会出现很多错误且难以解决 不太建议使用
+p.s: 目前docker已经支持gpu虚拟化，因此nvidia-docker已经过时，网上提到的nvidia-docker都无用
+p.s： 题主曾使用过macbook M1进行本地编译 发现在编译中会出现很多错误且难以解决 不太建议使用
 
 ## 检查环境
 ```bash
@@ -27,7 +29,9 @@ CUDA Toolkit和Paddle编译时选用的CUDA要匹配
 ```bash
 git clone --recursive https://github.com/PaddlePaddle/Paddle.git  
 ```
-    
+##### 1.科学上网
+git clone 非常巨大，有10G，需要科学上网以免各种卡顿，下载不全 
+##### 2.如果因为网络问题中断
 如果克隆 PaddlePaddle时卡住   
 手动中断后（^C）   
 重新运行上述代码会出现错误：fatal: destination path 'Paddle' already exists and is not an empty directory.   
