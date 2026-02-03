@@ -9,7 +9,7 @@ Docker  28.2.1
 cuda 11.8  cudnn 8.9  
 python3.10
 
-p.s: 目前docker已经支持gpu虚拟化，因此nvidia-docker已经过时，网上提到的nvidia-docker都无用
+p.s: 目前docker已经支持gpu虚拟化，因此nvidia-docker已经过时，网上提到的nvidia-docker都无用   
 p.s： 题主曾使用过macbook M1进行本地编译 发现在编译中会出现很多错误且难以解决 不太建议使用
 
 ## 检查环境
