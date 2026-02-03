@@ -97,6 +97,13 @@ make -j1
 <img width="1908" height="542" alt="9663c284127229a53267c6ee5825284c" src="https://github.com/user-attachments/assets/aec332f0-f282-4fa4-8b39-196718859b93" />
 需要修改编译代码重新开始   
 修复：  
+需要将文件内容中为computer100的部分修改成为86，使得环境与文档匹配  
+下列代码将文件进行备份后   
+修改主要配置与第三方库中的代码 将100改为86  
+并删除build中的构建缓存  
+在修复完成后进行重新编译  
+即可解决以上报错
+  
 ```bash
 cat > fix_for_rtx3090.sh << 'EOF'
 #!/bin/bash
@@ -151,10 +158,24 @@ echo "=== 完成 ==="
 EOF
 ```
 之后即可重新运行（此处注意自己的目录是否与代码中相同&如果计算时间在make前加time）
+    
+
+编译结束后，可以检查一下自己的paddle版本  
+```bash
+# 容器内执行，先回到Paddle源码根目录
+cd /paddle
+# 执行官方版本查询脚本
+python tools/version.py
+```
+题主本人在编译后发现自己版本为0.15.XX  
+可能是由于在前面debug时重新开始时 漏写了部分代码  
+导致存在版本问题   
+如果发现此类问题   
+可以重新拉取3.3/其他想要的版本进行cmake与make重新编译   
 
 #### 11.初次编译/二次编译
 此处参考文档为 https://github.com/PaddlePaddle/FastDeploy/issues/6225
-初次编译时间相当于二次编译速度更快，因为有编译存储的存在，时间会较短  
+初次编译时间相当于二次编译速度更快，因为有编译缓存的存在，时间会较短  
   
 修改底层的头文件：paddle/fluid/platform/enforce.h   
   
@@ -197,7 +218,7 @@ ctest -R test_logsumexp运行logsumexp的单测。
 
 
 #### 15. 一些其他东西
-1.  
+##### 1.如果出现
 ```bash
 ValueError: (InvalidArgument) use wrong place, Please check. (at /paddle/Paddle/paddle/fluid/pybind/place.cc:427)  
 ```
@@ -208,14 +229,14 @@ ValueError: (InvalidArgument) use wrong place, Please check. (at /paddle/Paddle/
 参照外文文档中     
 应该是把no-cgroups=true改成no-cgroups=false     
 但中文文档写错了……   
-2.  
-docker断联:  
-你可以docker ps找到你的docker名字  
+##### 2. 退出docker后重新启动
+退出docker后，容器自动会自动stop, 这时需要
 ```bash
+docker ps -a  #列出所有容器后找到docker
 docker start <docker_name>
 docker attach <docker_name>
 ```
-3.
+##### 3.报错显示路径找不到
 当你的编译报错说XX路径找不到时可以   
 创造软链接    
 或者使用rm对文件进行移动    
