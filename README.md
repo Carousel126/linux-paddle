@@ -8,6 +8,9 @@ Ubuntu 20.04 (GPU版本支持 CUDA 11.8-12.x)
 3090  
 cuda 11.8  cudnn 8.9  
 python3.10
+
+ps：题主曾使用过macbook M1进行本地编译 发现在编译中会出现很多错误且难以解决 不太建议使用
+
 ## 检查环境
 ```bash
 # 检查linux环境
@@ -25,6 +28,22 @@ CUDA Toolkit和Paddle编译时选用的CUDA要匹配
 ```bash
 git clone --recursive https://github.com/PaddlePaddle/Paddle.git  
 ```
+    
+如果克隆 PaddlePaddle时卡住   
+手动中断后（^C）   
+重新运行上述代码会出现错误：fatal: destination path 'Paddle' already exists and is not an empty directory.   
+主要是因为 Paddle目录已创建但子模块拉取不完整，再次执行克隆命令就会报 “目录已存在且非空” 的错误。   
+核心解决思路是复用已创建的 Paddle 目录，补全未拉取完成的子模块：   
+步骤 1：进入已创建的 Paddle 目录   
+```bash
+cd ~/baidu/Paddle  
+```
+步骤 2：补全并更新所有子模块  
+初始化所有未初始化的子模块，拉取完整的子模块代码，同时修复之前中断导致的checkout failed问题：  
+```bash
+运行
+git submodule update --init --recursive
+```
 #### 2. 进入 Paddle 目录下：  
 ```bash
 cd Paddle
@@ -39,7 +58,7 @@ docker run --gpus all --name paddle_docker -v $PWD:/paddle --network=host -it cc
 ```
 #### 5. 进入 Docker 后进入 paddle 目录下：
 ```bash
-cd Paddle
+cd /Paddle
 ```
 遗漏这一步可能导致路径变成paddle/paddle 与参考文档不同  
 #### 6. 切换到 develop 版本进行编译：
@@ -150,10 +169,12 @@ EOF
 ```bash
 cd /paddle/build/python/dist
 ```
+
 #### 13. 在当前机器或目标机器安装编译好的.whl包：
 ```bash
 pip3.10 install -U [whl 包的名字]
 ```
+
 #### 14. 运行单元测试
 不同的编译选项，能编译出不同的功能，对应的编译时间也各不相同。可以参考编译选项表，尝试打开WITH_TESTING=ON编译出单元测试，并正确运行一个单测。
 ```bash
@@ -161,12 +182,53 @@ pip3.10 install -U [whl 包的名字]
 cmake .. -DPY_VERSION=3.8 -DWITH_GPU=OFF -DWITH_TESTING=ON（在原来的cmake命令后加入-DWITH_TESTING=ON）
 # 执行编译命令
 make -j$(nproc)
-# 安装第三方依赖
+# 安装第三方库
 pip3.10 install -r ../python/requirements.txt
 # cd
 cd /paddle/build
 #运行logsumexp的单测
 ctest -R test_logsumexp运行logsumexp的单测。
 ```
+运行单测的时候可能出现  
+一般来讲应该是各个模块之间不匹配造成的  
+但题主全部检查了一遍发现都是匹配的但依旧报这个错误  
+最后只能重新编译进行尝试  
+<img width="1404" height="504" alt="d20dc473052630dec134cff001d67625" src="https://github.com/user-attachments/assets/90863fa2-8495-4a8a-899f-dd798160b407" />
+
+
+#### 15. 一些其他东西
+1.  
+```bash
+ValueError: (InvalidArgument) use wrong place, Please check. (at /paddle/Paddle/paddle/fluid/pybind/place.cc:427)  
+```
+然后在nvidia-smi时找不到gpu
+可以参考https://dev-solve.com/zh/posts/458de4c  
+但是它其中有一步写错了  
+<img width="738" height="281" alt="d5fee88d8dced7460a1f567c0c48614e" src="https://github.com/user-attachments/assets/20a977df-4e1f-4b67-91d9-e53ea147a03e" />   
+参照外文文档中     
+应该是把no-cgroups=true改成no-cgroups=false     
+但中文文档写错了……   
+2.  
+docker断联:  
+你可以docker ps找到你的docker名字  
+```bash
+docker start <docker_name>
+docker attach <docker_name>
+```
+3.
+当你的编译报错说XX路径找不到时可以   
+创造软链接    
+或者使用rm对文件进行移动    
+
+
+
+
+
+
+
+
+
+
+
 
 
