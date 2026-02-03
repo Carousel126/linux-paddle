@@ -203,7 +203,8 @@ pip3.10 install -U [whl 包的名字]
 不同的编译选项，能编译出不同的功能，对应的编译时间也各不相同。可以参考编译选项表，尝试打开WITH_TESTING=ON编译出单元测试，并正确运行一个单测。
 ```bash
 # 重新运行cmake命令：
-cmake .. -DPY_VERSION=3.8 -DWITH_GPU=OFF -DWITH_TESTING=ON（在原来的cmake命令后加入-DWITH_TESTING=ON）
+cmake .. -DPY_VERSION=3.10 -DWITH_GPU=ON -DWITH_TESTING=ON
+（在原来的cmake命令后加入-DWITH_TESTING=ON）
 # 执行编译命令
 make -j$(nproc)
 # 安装第三方库
