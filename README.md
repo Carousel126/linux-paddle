@@ -3,8 +3,8 @@
 总体过程参考https://www.paddlepaddle.org.cn/documentation/docs/zh/develop/install/compile/linux-compile-by-make.html
 
 ## 环境
-Linux ubuntu 20.04
-硬件  NVIDIA 3090
+Linux ubuntu 20.04   
+硬件  NVIDIA 3090    
 cuda 11.8  cudnn 8.9  
 python3.10
 
